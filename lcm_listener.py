@@ -20,14 +20,6 @@ lc2 = lcm.LCM()
 subscription1 = lc1.subscribe("firstTracker", my_handler1)
 subscription2 = lc1.subscribe("secondTracker", my_handler2)
 
-# try:
-#     while True:
-#         lc1.handle()
-#         lc2.handle()
-# except KeyboardInterrupt:
-#     pass
-
-
 try:
     timeout = .5  # amount of time to wait, in seconds
     while True:
