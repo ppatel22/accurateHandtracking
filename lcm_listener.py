@@ -14,6 +14,11 @@ def my_handler2(channel, data):
     print("   timestamp   = %s" % str(msg.timestamp))
     angles = [msg.angle0, msg.angle1, msg.angle2, msg.angle3, msg.angle4, msg.angle5, msg.angle6, msg.angle7]
     print("Angles from second tracker:", angles)
+# Look into making joint class that takes in the angles from each tracker attributes
+def handler()
+    
+    
+
 
 lc1 = lcm.LCM()
 lc2 = lcm.LCM()
