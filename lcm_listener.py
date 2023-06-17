@@ -3,21 +3,42 @@ import select
 from joints1 import jointAngles1
 from joints2 import jointAngles2
 
+
 def my_handler1(channel, data):
     msg = jointAngles1.decode(data)
     print("   timestamp   = %s" % str(msg.timestamp))
-    angles = [msg.angle0, msg.angle1, msg.angle2, msg.angle3, msg.angle4, msg.angle5, msg.angle6, msg.angle7]
+    angles = [
+        msg.angle0,
+        msg.angle1,
+        msg.angle2,
+        msg.angle3,
+        msg.angle4,
+        msg.angle5,
+        msg.angle6,
+        msg.angle7,
+    ]
     print("Angles from first tracker:", angles)
+
 
 def my_handler2(channel, data):
     msg = jointAngles2.decode(data)
     print("   timestamp   = %s" % str(msg.timestamp))
-    angles = [msg.angle0, msg.angle1, msg.angle2, msg.angle3, msg.angle4, msg.angle5, msg.angle6, msg.angle7]
+    angles = [
+        msg.angle0,
+        msg.angle1,
+        msg.angle2,
+        msg.angle3,
+        msg.angle4,
+        msg.angle5,
+        msg.angle6,
+        msg.angle7,
+    ]
     print("Angles from second tracker:", angles)
+
+
 # Look into making joint class that takes in the angles from each tracker attributes
-def handler()
-    
-    
+def handler():
+    pass  # TODO
 
 
 lc1 = lcm.LCM()
@@ -26,7 +47,7 @@ subscription1 = lc1.subscribe("firstTracker", my_handler1)
 subscription2 = lc1.subscribe("secondTracker", my_handler2)
 
 try:
-    timeout = .5  # amount of time to wait, in seconds
+    timeout = 0.5  # amount of time to wait, in seconds
     while True:
         rfds, wfds, efds = select.select([lc1.fileno()], [], [], timeout)
         if rfds:
