@@ -10,7 +10,7 @@ When collecting data to create the mapping between nerves firing and intended mo
 Prerequisites:
 You must be on the latest version of Python. Please ensure that the following packages are installed before running this code: opencv2, mediapipe, numpy, pandas, and lcm. You can paste the line below into your terminal to install the necessary packages.
 
-```pip install opencv-python numpy pandas lcm```
+```pip install opencv-python numpy pandas lcm mediapipe```
 
 To learn more about LCM (the module used for communication between the two trackers), please visit their [project site](https://lcm-proj.github.io/lcm/#).
 

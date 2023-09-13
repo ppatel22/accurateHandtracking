@@ -1,7 +1,40 @@
 import lcm
 import select
+import pandas as pd
 from joints1 import jointAngles1
 from joints2 import jointAngles2
+
+# NOTE: This file takes in the angles from each tracker and saves them to two different
+# pandas DataFrames. Post-processing can be done on the data after it has been saved as a .csv
+# Columns named angle1.X relate to the first tracker and angle2.X relates to the second.
+
+firstData = pd.DataFrame(
+    columns=[
+        "angle1.0",
+        "angle1.1",
+        "angle1.2",
+        "angle1.3",
+        "angle1.4",
+        "angle1.5",
+        "angle1.6",
+        "angle1.7",
+    ]
+)
+
+secondData = pd.DataFrame(
+    columns=[
+        "angle2.0",
+        "angle2.1",
+        "angle2.2",
+        "angle2.3",
+        "angle2.4",
+        "angle2.5",
+        "angle2.6",
+        "angle2.7",
+    ]
+)
+i = 0
+j = 0
 
 
 def my_handler1(channel, data):
@@ -18,6 +51,8 @@ def my_handler1(channel, data):
         msg.angle7,
     ]
     print("Angles from first tracker:", angles)
+    firstData.loc[i] = angles
+    i += 1
 
 
 def my_handler2(channel, data):
@@ -34,11 +69,8 @@ def my_handler2(channel, data):
         msg.angle7,
     ]
     print("Angles from second tracker:", angles)
-
-
-# Look into making joint class that takes in the angles from each tracker attributes
-def handler():
-    pass  # TODO
+    secondData.loc[j] = angles
+    j += 1
 
 
 lc1 = lcm.LCM()
@@ -60,6 +92,8 @@ try:
         else:
             print("Waiting for message from second tracker...")
 except KeyboardInterrupt:
+    merged = pd.concat([firstData, secondData], ignore_index=True)
+    merged.to_save("data.csv", index=False)
     pass
 
 

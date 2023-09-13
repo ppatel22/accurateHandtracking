@@ -41,7 +41,7 @@ class handTracker:
     PINKY_DIP = 19
     PINKY_TIP = 20
 
-    def __init__(self, camera=2, frameWidth=None, frameHeight=None):
+    def __init__(self, camera=0, frameWidth=None, frameHeight=None):
         self.mp_drawing = mp.solutions.drawing_utils
         self.mp_drawing_styles = mp.solutions.drawing_styles
         self.mp_hands = mp.solutions.hands
@@ -55,22 +55,22 @@ class handTracker:
         self.handedness = None
         self.palmTowards = True
 
-        self.camera = camera  # webcam is 0, wired input is 1
+        self.camera = camera  # Webcam 0, Wired input 1/2
 
         self.numJoints = 8
         self.posCom = np.zeros(self.numJoints)
 
-        cap = cv2.VideoCapture(self.camera)
+        self.cap = cv2.VideoCapture(self.camera)
         if frameWidth is not None:
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, frameWidth)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, frameWidth)
         if frameHeight is not None:
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, frameHeight)
-        self.frameRate = cap.get(cv2.CAP_PROP_FPS)  # 30 FPS
-        self.cols = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.rows = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        # self.filters = BesselFilterArr(numChannels=self.numJoints, order=4, critFreqs=[14, 14, 14, 14, 14, 14, 14, 14], fs=self.frameRate, filtType='lowpass')
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, frameHeight)
+        self.frameRate = self.cap.get(cv2.CAP_PROP_FPS)  # 30 FPS
+
+        self.cols = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.rows = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
         self.history = np.zeros((self.numJoints, int(self.frameRate)))
-        self.cap = cap
 
         self.startTime = time.time()
 
@@ -279,7 +279,7 @@ class handTracker:
                 # The line below prints out the timestamp and coordinates in the terminal.
                 # print(f'{(time.time() - self.startTime):.5f}', [f'{pos:07.3f}' for pos in posCom])
 
-                # The line below uses a hleper function to send the timestamp and angles via LCM
+                # The line below uses a helper function to send the timestamp and angles via LCM
                 self.sendMessage(posCom)
 
                 self.mp_drawing.draw_landmarks(
@@ -319,80 +319,67 @@ class handTracker:
 
         self.cap.release()
 
-    # def saveData(self, saveName=None):
-    #     outputDf = pd.DataFrame(data=self.output, columns=self.colNames)
-    #     curTime = str(datetime.datetime.now()).split('.')[0] # removes microseconds
-    #     curTime = curTime.replace(" ", "_")
-    #     if saveName is None:
-    #         outputDf.to_csv('./data/handTrackingCoordinates_' + str(curTime) + '.csv', encoding='utf-8', sep="\t", index=False)
-    #     else:
-    #         outputDf.to_csv('./' + saveName + '.csv', encoding='utf-8', sep="\t", index=False)
+    # def analyzeVideo(self, fileName):
+    #     vidFile = cv2.VideoCapture(fileName)
+    #     length = int(vidFile.get(cv2.CAP_PROP_FRAME_COUNT))
+    #     frameRate = np.ceil(vidFile.get(cv2.CAP_PROP_FPS))
+    #     resolution = (
+    #         int(vidFile.get(cv2.CAP_PROP_FRAME_WIDTH)),
+    #         int(vidFile.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+    #     )
+    #     (self.cols, self.rows) = resolution
 
-    def analyzeVideo(self, fileName):
-        vidFile = cv2.VideoCapture(fileName)
-        length = int(vidFile.get(cv2.CAP_PROP_FRAME_COUNT))
-        frameRate = np.ceil(vidFile.get(cv2.CAP_PROP_FPS))
-        resolution = (
-            int(vidFile.get(cv2.CAP_PROP_FRAME_WIDTH)),
-            int(vidFile.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-        )
-        (self.cols, self.rows) = resolution
+    #     print(
+    #         f"Input video information: {length} frames ({frameRate} FPS) captured at {resolution}"
+    #     )
 
-        print(
-            f"Input video information: {length} frames ({frameRate} FPS) captured at {resolution}"
-        )
+    #     with self.mp_hands.Hands(
+    #         static_image_mode=False,
+    #         max_num_hands=1,
+    #         min_detection_confidence=0.5,
+    #         min_tracking_confidence=0.5,
+    #     ) as hands:
+    #         for frameNum in range(length):
+    #             status, frame = vidFile.read()
 
-        with self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-        ) as hands:
-            for frameNum in range(length):
-                status, frame = vidFile.read()
+    #             if not status:
+    #                 print(f"Frame number {frameNum} not read correctly")
+    #                 continue
 
-                if not status:
-                    print(f"Frame number {frameNum} not read correctly")
-                    continue
+    #             # Read an image, flip it around y-axis for correct handedness output (see above).
+    #             image = cv2.flip(frame, 1)
 
-                # Read an image, flip it around y-axis for correct handedness output (see above).
-                image = cv2.flip(frame, 1)
+    #             # Convert the BGR image to RGB before processing.
+    #             results = hands.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-                # Convert the BGR image to RGB before processing.
-                results = hands.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    #             if not results.multi_hand_landmarks:
+    #                 continue
 
-                if not results.multi_hand_landmarks:
-                    continue
+    #             for hand_landmarks in results.multi_hand_landmarks:
+    #                 coords = self.extractCoordinates(hand_landmarks)
+    #                 posCom = self.calculateAngles(coords)
 
-                for hand_landmarks in results.multi_hand_landmarks:
-                    coords = self.extractCoordinates(hand_landmarks)
-                    posCom = self.calculateAngles(coords)
+    #                 self.output = np.concatenate(
+    #                     (self.output, np.append(coords, posCom)[None, :]), axis=0
+    #                 )
 
-                    self.output = np.concatenate(
-                        (self.output, np.append(coords, posCom)[None, :]), axis=0
-                    )
+    #             # Draw hand world landmarks.
+    #             if not results.multi_hand_world_landmarks:
+    #                 continue
 
-                # Draw hand world landmarks.
-                if not results.multi_hand_world_landmarks:
-                    continue
+    #             if not frameNum % 100:
+    #                 print(f"Processed frame {frameNum} of {length}")
 
-                if not frameNum % 100:
-                    print(f"Processed frame {frameNum} of {length}")
-
-        print(f"Done - saving data to ./data/{fileName[:-4]}.csv")
-        # self.saveData(saveName='data/' + fileName[:-4])
+    #     print(f"Done - saving data to ./data/{fileName[:-4]}.csv")
+    #     # self.saveData(saveName='data/' + fileName[:-4])
 
 
 if __name__ == "__main__":
     print("Starting hand tracker")
-    tracker = handTracker()
-    sendingToArm = False
+    inputcamera = sys.argv[1]
 
-    tracker.runTracking(arm=None)
-    # if saving: tracker.saveData()
 
-    tracker1 = handTracker(camera=0, frameWidth=480, frameHeight=320)
-
-    thread1 = threading.Thread(target=tracker1.runTracking, name="Camera1")
-
+    tracker = handTracker(camera=inputcamera, frameWidth=480, frameHeight=320)
+    tracker.runTracking()
+    
     print("Done.")
