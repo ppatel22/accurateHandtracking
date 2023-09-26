@@ -13,8 +13,6 @@ from mediapipe.framework.formats import landmark_pb2
 import time
 import datetime
 
-from joints1 import jointAngles1
-
 model_path = "/Users/princepatel/mit/accurateHandtracking/hand_landmarker.task"
 
 BaseOptions = mp.tasks.BaseOptions
@@ -40,7 +38,6 @@ def extractCoordinates(
         landmarks_data = []
         for norm in hand_landmarks_list[0]:
             landmarks_data.append(np.array([norm.x, norm.y, norm.z]))
-        print(landmarks_data)
         positions = calculateAngles(landmarks_data)
     else:
         positions = None
@@ -177,7 +174,19 @@ landmarker_options = HandLandmarkerOptions(
     result_callback=extractCoordinates,
 )
 
-final = pd.DataFrame(columns=["Angle 1", "Angle 2", "Angle 3", "Angle 4", "Angle 5", "Angle 6", "Angle 7", "Angle 8", "Timestamp (ms)"])
+final = pd.DataFrame(
+    columns=[
+        "Angle 1",
+        "Angle 2",
+        "Angle 3",
+        "Angle 4",
+        "Angle 5",
+        "Angle 6",
+        "Angle 7",
+        "Angle 8",
+        "Timestamp (ms)",
+    ]
+)
 try:
     with mp.tasks.vision.HandLandmarker.create_from_options(
         landmarker_options
@@ -196,13 +205,13 @@ try:
             # Send live image data to perform hand landmarks detection.
             frame_timestamp_ms = int(round(time.time() * 1000))
             result = landmarker.detect_async(mp_image, frame_timestamp_ms)
-            print("result saved", frame_timestamp_ms)
 except KeyboardInterrupt:
     file_name = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".csv"
     file_path = os.path.join(output_directory, file_name)
     final.to_csv(file_path)
     cap.release()
     cv2.destroyAllWindows()
+
 """
 NOTES:
 - result of landmarker.detect_async(mp_image, frame_timestamp_ms) is a list of HandLandmarkerResult objects (https://github.com/google/mediapipe/blob/master/mediapipe/tasks/python/components/containers/landmark_detection_result.py)
