@@ -12,6 +12,7 @@ from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import time
 import datetime
+import threading
 
 model_path = "/Users/princepatel/mit/accurateHandtracking/hand_landmarker.task"
 
@@ -20,17 +21,19 @@ HandLandmarker = mp.tasks.vision.HandLandmarker
 HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
 HandLandmarkerResult = mp.tasks.vision.HandLandmarkerResult
 VisionRunningMode = mp.tasks.vision.RunningMode
-output_directory = "data"
+output_directory = "dataCombo"
 handedness = None
-palmTowards = None
+palmTowards = None      # make sure this is updated and saved to the dataframe
 os.makedirs(output_directory, exist_ok=True)
 
 
-def extractCoordinates(
+def extractCoordinatesL(
     result: HandLandmarkerResult,
     image: mp.Image,
     timestamp_ms: int,
 ):
+    global finalL
+    global handedness
     # Save the coordinates as a 2D numpy array with 21 columns, each containing the x, y, and z coordinates of a landmark
     hand_landmarks_list = result.hand_landmarks
     if hand_landmarks_list:
@@ -43,10 +46,29 @@ def extractCoordinates(
         positions = None
     if positions is not None:
         positions.append(timestamp_ms)
-        final.loc[len(final)] = positions
-        print(len(final))
+        finalL.loc[len(finalL)] = positions
     return None
 
+def extractCoordinatesR(
+    result: HandLandmarkerResult,
+    image: mp.Image,
+    timestamp_ms: int,
+):
+    global finalR
+    # Save the coordinates as a 2D numpy array with 21 columns, each containing the x, y, and z coordinates of a landmark
+    hand_landmarks_list = result.hand_landmarks
+    if hand_landmarks_list:
+        handedness = result.handedness[0][0].display_name
+        landmarks_data = []
+        for norm in hand_landmarks_list[0]:
+            landmarks_data.append(np.array([norm.x, norm.y, norm.z]))
+        positions = calculateAngles(landmarks_data)
+    else:
+        positions = None
+    if positions is not None:
+        positions.append(timestamp_ms)
+        finalR.loc[len(finalR)] = positions
+    return None
 
 def calculateAngles(coordinates):
     # thumbAng = calculateThumb(coordinates)
@@ -73,6 +95,7 @@ def calculateAngles(coordinates):
 
 
 def findPalm(coordinates):
+    global palmTowards
     wrist = coordinates[0]
     index = coordinates[5]
     pinky = coordinates[17]
@@ -169,54 +192,108 @@ def angleBetweenVectors(v1, v2, alternate=False):
     return angle
 
 
-landmarker_options = HandLandmarkerOptions(
+landmarker_optionsL = HandLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=model_path),
     running_mode=VisionRunningMode.LIVE_STREAM,
-    result_callback=extractCoordinates,
+    result_callback=extractCoordinatesL,
 )
 
-final = pd.DataFrame(
+landmarker_optionsR = HandLandmarkerOptions(
+    base_options=BaseOptions(model_asset_path=model_path),
+    running_mode=VisionRunningMode.LIVE_STREAM,
+    result_callback=extractCoordinatesR,
+)
+
+finalL = pd.DataFrame(
     columns=[
-        "Angle 1",
-        "Angle 2",
-        "Angle 3",
-        "Angle 4",
-        "Angle 5",
-        "Angle 6",
-        "Angle 7",
-        "Angle 8",
-        "Timestamp (ms)",
+        "Angle L1",
+        "Angle L2",
+        "Angle L3",
+        "Angle L4",
+        "Angle L5",
+        "Angle L6",
+        "Angle L7",
+        "Angle L8",
+        "Timestamp L (ms)",
     ]
 )
-cv2.namedWindow("Live Feed")
+finalR = pd.DataFrame(
+    columns=[
+        "Angle R1",
+        "Angle R2",
+        "Angle R3",
+        "Angle R4",
+        "Angle R5",
+        "Angle R6",
+        "Angle R7",
+        "Angle R8",
+        "Timestamp R (ms)",
+    ]
+)
 
-landmarker = mp.tasks.vision.HandLandmarker.create_from_options(landmarker_options)
 
-cap = cv2.VideoCapture(1)  # Use the appropriate camera index if not the default
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        print("Error reading frame from webcam.")
-        break
+def process_camera(cap, landmarker, camera_index):
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            print(f"Error reading frame from webcam {camera_index}.")
+            break
+        # cv2.imshow(f"Live Feed {camera_index}", frame)
 
-    # Convert the frame received from OpenCV to a MediaPipe’s Image object.
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
-    # Send live image data to perform hand landmarks detection.
-    frame_timestamp_ms = int(round(time.time() * 1000))
-    result = landmarker.detect_async(mp_image, frame_timestamp_ms)
-    cv2.imshow("Live Feed", frame) 
-    key = cv2.waitKey(1)
-    if key & 0xFF == ord("q"):
-        break
+        # Convert the frame received from OpenCV to a MediaPipe’s Image object.
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
+        # Send live image data to perform hand landmarks detection.
+        frame_timestamp_ms = int(round(time.time() * 1000))
+        result = landmarker.detect_async(mp_image, frame_timestamp_ms)
+        print(f"Handedness: {handedness}, Palm Towards: {palmTowards}")
+    return None
 
-file_name = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".csv"
-file_path = os.path.join(output_directory, file_name)
-final.to_csv(file_path)
-cap.release()
-cv2.destroyAllWindows()
 
+# Create threads for each camera
+cap1 = cv2.VideoCapture(0)  # Use the appropriate camera index for the first camera
+cap2 = cv2.VideoCapture(1)  # Use the appropriate camera index for the second camera
+
+# Create a separate HandLandmarker instance for each camera
+landmarkerL = mp.tasks.vision.HandLandmarker.create_from_options(landmarker_optionsL)
+landmarkerR = mp.tasks.vision.HandLandmarker.create_from_options(landmarker_optionsR)
+
+# Start threads for each camera
+thread1 = threading.Thread(target=process_camera, args=(cap1, landmarkerL, 0))
+thread2 = threading.Thread(target=process_camera, args=(cap2, landmarkerR, 1))
+
+# Start the threads
+thread1.start()
+thread2.start()
+
+try:
+    while True:
+        pass
+except KeyboardInterrupt:
+    file_name = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".csv"
+    file_path = os.path.join(output_directory, file_name)
+    finalcombo = pd.concat([finalL, finalR], axis=1)
+    finalcombo.to_csv(file_path)
+
+    # Release camera resources
+    cap1.release()
+    cap2.release()
+
+    # Close OpenCV windows
+    cv2.destroyAllWindows()
+
+    # Wait for threads to finish
+    thread1.join()
+    thread2.join()
 """
 NOTES:
 - result of landmarker.detect_async(mp_image, frame_timestamp_ms) is a list of HandLandmarkerResult objects (https://github.com/google/mediapipe/blob/master/mediapipe/tasks/python/components/containers/landmark_detection_result.py)
 - Each landmark can either be normalized or pixel coordinates. (https://github.com/google/mediapipe/blob/master/mediapipe/tasks/python/components/containers/landmark.py)
+"""
+
+"""
+Notes from 9/26/23:
+The trackerL.py file should work perfectly fine now. Instead of running two copies of the same program (one for each camera), 
+I am trying to use threading in this combined tracker program. The program runs in its current state, as I have made minmal 
+changes. Basically, I moved the camera frame reading and processing to a reusable function. Now, I need to create a new dataframe 
+that can save data from both cameras. This will most likely involve changing or duplicating the extractCoordinates function.
 """
