@@ -2,5 +2,4 @@
 data/
 .gitattributes
 venv/
-dataExploration.py
 dataCombo/
