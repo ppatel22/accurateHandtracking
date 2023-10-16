@@ -23,7 +23,7 @@ HandLandmarkerResult = mp.tasks.vision.HandLandmarkerResult
 VisionRunningMode = mp.tasks.vision.RunningMode
 output_directory = "dataCombo"
 handedness = None
-palmTowards = None      # make sure this is updated and saved to the dataframe
+palmTowards = None  # make sure this is updated and saved to the dataframe
 os.makedirs(output_directory, exist_ok=True)
 
 
@@ -34,6 +34,7 @@ def extractCoordinatesL(
 ):
     global finalL
     global handedness
+    global palmTowards
     # Save the coordinates as a 2D numpy array with 21 columns, each containing the x, y, and z coordinates of a landmark
     hand_landmarks_list = result.hand_landmarks
     if hand_landmarks_list:
@@ -45,9 +46,26 @@ def extractCoordinatesL(
     else:
         positions = None
     if positions is not None:
+        positions.append(handedness)
+        positions.append(palmTowards)
         positions.append(timestamp_ms)
         finalL.loc[len(finalL)] = positions
+    else:
+        finalL.loc[len(finalL)] = [
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            timestamp_ms,
+        ]
     return None
+
 
 def extractCoordinatesR(
     result: HandLandmarkerResult,
@@ -55,6 +73,8 @@ def extractCoordinatesR(
     timestamp_ms: int,
 ):
     global finalR
+    global handedness
+    global palmTowards
     # Save the coordinates as a 2D numpy array with 21 columns, each containing the x, y, and z coordinates of a landmark
     hand_landmarks_list = result.hand_landmarks
     if hand_landmarks_list:
@@ -66,9 +86,26 @@ def extractCoordinatesR(
     else:
         positions = None
     if positions is not None:
+        positions.append(handedness)
+        positions.append(palmTowards)
         positions.append(timestamp_ms)
         finalR.loc[len(finalR)] = positions
+    else:
+        finalR.loc[len(finalR)] = [
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            float("NaN"),
+            timestamp_ms,
+        ]
     return None
+
 
 def calculateAngles(coordinates):
     # thumbAng = calculateThumb(coordinates)
@@ -214,6 +251,8 @@ finalL = pd.DataFrame(
         "Angle L6",
         "Angle L7",
         "Angle L8",
+        "Handedness L",
+        "palmTowards L",
         "Timestamp L (ms)",
     ]
 )
@@ -227,6 +266,8 @@ finalR = pd.DataFrame(
         "Angle R6",
         "Angle R7",
         "Angle R8",
+        "Handedness R",
+        "palmTowards R",
         "Timestamp R (ms)",
     ]
 )
@@ -241,7 +282,9 @@ def process_camera(cap, landmarker, camera_index):
         # cv2.imshow(f"Live Feed {camera_index}", frame)
 
         # Convert the frame received from OpenCV to a MediaPipe’s Image object.
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
+        mp_image = mp.Image(
+            image_format=mp.ImageFormat.SRGB, data=frame
+        )  # TODO: flip image before sending in
         # Send live image data to perform hand landmarks detection.
         frame_timestamp_ms = int(round(time.time() * 1000))
         result = landmarker.detect_async(mp_image, frame_timestamp_ms)
@@ -296,4 +339,14 @@ The trackerL.py file should work perfectly fine now. Instead of running two copi
 I am trying to use threading in this combined tracker program. The program runs in its current state, as I have made minmal 
 changes. Basically, I moved the camera frame reading and processing to a reusable function. Now, I need to create a new dataframe 
 that can save data from both cameras. This will most likely involve changing or duplicating the extractCoordinates function.
+"""
+
+"""
+Notes from 10/4/23:
+Angle 1: Thumb pitch
+Angle 2: Thumb yaw
+Angle 3: Index MCP
+Angle 4: Middle MCP
+Angle 5: Wrist rotation
+Angle 6: Wrist flexion
 """
